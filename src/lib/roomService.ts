@@ -31,11 +31,13 @@ async function enforceMaxRooms(maxRooms: number): Promise<void> {
   const removeCount = ids.length - maxRooms
   const toRemove = oldestFirst.slice(0, removeCount)
 
-  const updates: Record<string, null> = {}
+  // Use update under `rooms/` only — root `update(ref(db), { "rooms/x": null })`
+  // is often rejected by RTDB rules even when `rooms/$roomId` allows write.
+  const deletes: Record<string, null> = {}
   for (const id of toRemove) {
-    updates[`rooms/${id}`] = null
+    deletes[id] = null
   }
-  await update(ref(db), updates)
+  await update(roomsRef, deletes)
 }
 
 export async function createRoomWithUniqueId(): Promise<string> {
