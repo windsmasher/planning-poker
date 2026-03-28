@@ -38,7 +38,7 @@ Real-time planning poker for distributed teams. Built with **React 18**, **TypeS
 | Command        | Description                                      |
 | -------------- | ------------------------------------------------ |
 | `npm run dev`  | Local dev server (Vite)                         |
-| `npm run build`| Typecheck, production build, copy `404.html`   |
+| `npm run build`| Typecheck, production build into `docs/`, copy `404.html` |
 | `npm run preview` | Serve the production build locally           |
 
 ## Local development
@@ -63,7 +63,11 @@ For a **user/org site** (`https://<user>.github.io/` with the repo named `<user>
 
 ### SPA fallback
 
-GitHub Pages does not rewrite unknown paths to `index.html`. After each build, `npm run build` copies `dist/index.html` to `dist/404.html` so refreshes and deep links to `/room/...` load the app.
+GitHub Pages does not rewrite unknown paths to `index.html`. After each build, `npm run build` copies `docs/index.html` to `docs/404.html` so refreshes and deep links to `/room/...` load the app.
+
+### Why the live site can look blank
+
+If **Pages** is set to **Deploy from a branch** with folder **`/ (root)`**, GitHub serves your **source** tree. The root `index.html` loads `/src/main.tsx`, which only works with the Vite dev server — the browser never runs that bundle, so you get an empty page. Either publish the **built** output (this repo uses the `docs/` folder), or switch to **GitHub Actions** as the Pages source.
 
 ### Option A: GitHub Actions (recommended)
 
@@ -71,7 +75,7 @@ This repository includes `.github/workflows/deploy-github-pages.yml`, which:
 
 1. Runs on pushes to `main` (and manual `workflow_dispatch`).
 2. Sets `VITE_REPO_NAME` to `${{ github.event.repository.name }}` so the asset base matches the repo.
-3. Uploads `dist/` with **GitHub Pages** “GitHub Actions” source.
+3. Uploads the `docs/` build output with **GitHub Pages** “GitHub Actions” source.
 
 **One-time repo settings**
 
@@ -81,19 +85,21 @@ This repository includes `.github/workflows/deploy-github-pages.yml`, which:
 
 The live site URL appears in the workflow run and under **Pages**.
 
-### Option B: Deploy from a branch
+### Option B: Deploy from a branch (`/docs`)
 
-1. Build locally (set `VITE_REPO_NAME` if needed):
+Production files are written to **`docs/`** (Vite `build.outDir`).
+
+1. Build locally (set `VITE_REPO_NAME` if your repo name is not `planning-poker`):
 
    ```bash
    VITE_REPO_NAME=planning-poker npm run build
    ```
 
-2. Commit the contents of `dist/` to the branch GitHub Pages serves (often `gh-pages`), at the **root** of that branch, **or** use a tool such as [peaceiris/actions-gh-pages](https://github.com/peaceiris/actions-gh-pages) to push `dist/` to `gh-pages` from CI.
+2. **Commit and push** the `docs/` folder (including `assets/`, `index.html`, `404.html`, `.nojekyll`, `favicon.svg`) on `main`.
 
-3. **Settings → Pages → Deploy from a branch** → select that branch and `/ (root)`.
+3. In the repository: **Settings → Pages → Build and deployment → Source:** *Deploy from a branch* → Branch **`main`**, folder **`/docs`** (not `/ (root)`).
 
-Ensure `404.html` is present in the deployed root (included when you deploy the full `dist/` output after `npm run build`).
+After each change to app source, run `npm run build` again and commit the updated `docs/` before pushing.
 
 ## Data model (Realtime Database)
 
@@ -117,6 +123,7 @@ rooms/
 ```
 ├── .github/workflows/deploy-github-pages.yml
 ├── database.rules.json          # Sample RTDB rules (open; tighten for prod)
+├── docs/                        # Production build (commit for “Deploy from /docs”)
 ├── index.html
 ├── public/
 ├── src/

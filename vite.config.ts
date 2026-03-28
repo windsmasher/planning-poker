@@ -10,4 +10,9 @@ const repoName = process.env.VITE_REPO_NAME ?? 'planning-poker'
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
   base: mode === 'production' ? `/${repoName}/` : '/',
+  // GitHub Pages "Deploy from a branch" should use folder /docs (not repo root).
+  build: {
+    outDir: 'docs',
+    emptyOutDir: true,
+  },
 }))
