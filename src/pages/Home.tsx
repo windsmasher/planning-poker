@@ -37,6 +37,16 @@ export function Home() {
         <p className="mx-auto mt-4 max-w-md text-ink-600">
           Create a room, share the link, and estimate together in real time.
         </p>
+        <p className="mt-4 text-sm text-ink-500">
+          <a
+            href="https://github.com/windsmasher"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-ink-400/40 underline-offset-2 transition-colors hover:text-ink-700 hover:decoration-ink-600"
+          >
+            Built by Tomasz Paczka
+          </a>
+        </p>
         <motion.button
           type="button"
           disabled={creating}
