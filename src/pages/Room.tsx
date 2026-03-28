@@ -6,6 +6,7 @@ import { InvitationBar } from '../components/InvitationBar'
 import { ParticipantList } from '../components/ParticipantList'
 import { RoomControls } from '../components/RoomControls'
 import { SuggestedEstimationPanel } from '../components/SuggestedEstimationPanel'
+import { UnanimityConfetti } from '../components/UnanimityConfetti'
 import { useRoom } from '../hooks/useRoom'
 import { computeSuggestedEstimation } from '../lib/suggestedEstimation'
 import { participantStorageKey } from '../lib/roomId'
@@ -73,6 +74,15 @@ export function Room() {
       .filter((v): v is StoryPoint => v !== undefined)
     return computeSuggestedEstimation(votes)
   }, [room, revealed, estimatorEntries])
+
+  const unanimityVote = useMemo((): StoryPoint | null => {
+    if (!revealed || estimatorEntries.length === 0) return null
+    const votes = estimatorEntries.map((e) => e.participant.vote)
+    if (votes.some((v) => v === undefined)) return null
+    const first = votes[0] as StoryPoint
+    if (!votes.every((v) => v === first)) return null
+    return first
+  }, [revealed, estimatorEntries])
 
   const amObserver = useMemo(() => {
     if (!room || !localParticipantId) return false
@@ -299,7 +309,14 @@ export function Room() {
         {revealed &&
         suggestedEstimation &&
         suggestedEstimation.kind !== 'insufficient' ? (
-          <SuggestedEstimationPanel result={suggestedEstimation} />
+          <>
+            <UnanimityConfetti active={unanimityVote !== null} />
+            <SuggestedEstimationPanel
+              result={suggestedEstimation}
+              unanimous={unanimityVote !== null}
+              unanimousValue={unanimityVote ?? undefined}
+            />
+          </>
         ) : null}
 
         <ParticipantList
