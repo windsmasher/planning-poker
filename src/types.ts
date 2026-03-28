@@ -4,6 +4,8 @@ export type StoryPoint = (typeof STORY_POINTS)[number]
 
 export type Participant = {
   name: string
+  /** When true, user does not estimate; omitted/false means estimator */
+  observer?: boolean
   /** Present only after the user has selected a card */
   vote?: StoryPoint
 }

@@ -67,10 +67,15 @@ export async function createRoomWithUniqueId(): Promise<string> {
   throw new Error('Could not create a unique room. Please try again.')
 }
 
-export async function joinRoom(roomId: string, name: string): Promise<string> {
+export async function joinRoom(
+  roomId: string,
+  name: string,
+  observer: boolean,
+): Promise<string> {
   const participantId = crypto.randomUUID()
   await update(ref(db, `rooms/${roomId}/participants/${participantId}`), {
     name: name.trim(),
+    observer,
   })
   return participantId
 }

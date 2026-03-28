@@ -24,6 +24,9 @@ export function Room() {
       roomId ? sessionStorage.getItem(participantStorageKey(roomId)) : null,
   )
   const [joinName, setJoinName] = useState('')
+  const [joinRole, setJoinRole] = useState<'estimator' | 'observer' | null>(
+    null,
+  )
   const [joining, setJoining] = useState(false)
   const [joinError, setJoinError] = useState<string | null>(null)
   const [actionBusy, setActionBusy] = useState(false)
@@ -49,12 +52,22 @@ export function Room() {
     }))
   }, [room])
 
+  const estimatorEntries = useMemo(
+    () => participantEntries.filter((e) => !e.participant.observer),
+    [participantEntries],
+  )
+
   const allVoted = useMemo(() => {
-    if (!room || participantEntries.length === 0) return false
-    return participantEntries.every((e) => e.participant.vote !== undefined)
-  }, [room, participantEntries])
+    if (!room || estimatorEntries.length === 0) return false
+    return estimatorEntries.every((e) => e.participant.vote !== undefined)
+  }, [room, estimatorEntries])
 
   const revealed = room?.revealed ?? false
+
+  const amObserver = useMemo(() => {
+    if (!room || !localParticipantId) return false
+    return room.participants[localParticipantId]?.observer === true
+  }, [room, localParticipantId])
 
   const myVote = useMemo(() => {
     if (!room || !localParticipantId) return undefined
@@ -70,10 +83,14 @@ export function Room() {
       setJoinError('Please enter your name.')
       return
     }
+    if (joinRole === null) {
+      setJoinError('Choose whether you will estimate or observe.')
+      return
+    }
     setJoinError(null)
     setJoining(true)
     try {
-      const pid = await joinRoom(roomId, name)
+      const pid = await joinRoom(roomId, name, joinRole === 'observer')
       sessionStorage.setItem(participantStorageKey(roomId), pid)
       setLocalParticipantId(pid)
     } catch {
@@ -81,7 +98,7 @@ export function Room() {
     } finally {
       setJoining(false)
     }
-  }, [joinName, roomId])
+  }, [joinName, joinRole, roomId])
 
   const handleSelectCard = useCallback(
     async (vote: StoryPoint) => {
@@ -191,6 +208,47 @@ export function Room() {
               maxLength={64}
             />
           </label>
+          <fieldset className="mt-6 text-left">
+            <legend className="text-sm font-medium text-ink-700">
+              How will you join?
+            </legend>
+            <div className="mt-3 space-y-2">
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-ink-200 bg-ink-50/50 px-4 py-3 transition-colors has-[:checked]:border-accent has-[:checked]:bg-accent/5">
+                <input
+                  type="radio"
+                  name="join-role"
+                  checked={joinRole === 'estimator'}
+                  onChange={() => setJoinRole('estimator')}
+                  className="mt-1 accent-accent"
+                />
+                <span>
+                  <span className="block font-medium text-ink-900">
+                    Estimator
+                  </span>
+                  <span className="mt-0.5 block text-sm text-ink-500">
+                    Pick a card; you count toward revealing votes.
+                  </span>
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-ink-200 bg-ink-50/50 px-4 py-3 transition-colors has-[:checked]:border-accent has-[:checked]:bg-accent/5">
+                <input
+                  type="radio"
+                  name="join-role"
+                  checked={joinRole === 'observer'}
+                  onChange={() => setJoinRole('observer')}
+                  className="mt-1 accent-accent"
+                />
+                <span>
+                  <span className="block font-medium text-ink-900">
+                    Observer only
+                  </span>
+                  <span className="mt-0.5 block text-sm text-ink-500">
+                    Watch the session; no card and not counted for show cards.
+                  </span>
+                </span>
+              </label>
+            </div>
+          </fieldset>
           {joinError ? (
             <p className="mt-2 text-sm text-red-600" role="alert">
               {joinError}
@@ -198,7 +256,7 @@ export function Room() {
           ) : null}
           <motion.button
             type="button"
-            disabled={joining}
+            disabled={joining || joinRole === null}
             whileHover={joining ? undefined : { scale: 1.02 }}
             whileTap={joining ? undefined : { scale: 0.98 }}
             onClick={() => void handleJoin()}
@@ -234,16 +292,30 @@ export function Room() {
           localParticipantId={localParticipantId}
         />
 
-        <motion.section
-          layout
-          className="rounded-2xl border border-ink-200/80 bg-white/90 p-6 shadow-card backdrop-blur-sm"
-        >
-          <CardSelector
-            selected={myVote}
-            disabled={!canChangeVote}
-            onSelect={handleSelectCard}
-          />
-        </motion.section>
+        {amObserver ? (
+          <motion.section
+            layout
+            className="rounded-2xl border border-ink-200/80 bg-white/90 p-6 shadow-card backdrop-blur-sm"
+          >
+            <p className="text-center font-display text-sm font-semibold text-ink-700">
+              You are observing
+            </p>
+            <p className="mt-2 text-center text-sm text-ink-500">
+              Observers do not pick cards or appear in the vote tally.
+            </p>
+          </motion.section>
+        ) : (
+          <motion.section
+            layout
+            className="rounded-2xl border border-ink-200/80 bg-white/90 p-6 shadow-card backdrop-blur-sm"
+          >
+            <CardSelector
+              selected={myVote}
+              disabled={!canChangeVote}
+              onSelect={handleSelectCard}
+            />
+          </motion.section>
+        )}
 
         <RoomControls
           allVoted={allVoted}

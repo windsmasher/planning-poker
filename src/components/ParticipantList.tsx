@@ -21,7 +21,8 @@ export function ParticipantList({
       <ul className="space-y-2">
         {entries.map(({ id, participant }, index) => {
           const isSelf = id === localParticipantId
-          const hasVote = participant.vote !== undefined
+          const isObserver = participant.observer === true
+          const hasVote = !isObserver && participant.vote !== undefined
           return (
             <motion.li
               key={id}
@@ -44,14 +45,19 @@ export function ParticipantList({
                   ) : null}
                 </p>
                 <p className="mt-0.5 text-sm text-ink-500">
-                  {!hasVote && !revealed && 'Choosing a card…'}
-                  {hasVote && !revealed && 'Voted'}
-                  {revealed && hasVote && 'Revealed'}
-                  {!hasVote && revealed && 'No card'}
+                  {isObserver && 'Observing'}
+                  {!isObserver && !hasVote && !revealed && 'Choosing a card…'}
+                  {!isObserver && hasVote && !revealed && 'Voted'}
+                  {!isObserver && revealed && hasVote && 'Revealed'}
+                  {!isObserver && !hasVote && revealed && 'No card'}
                 </p>
               </div>
               <div className="shrink-0">
-                {hasVote ? (
+                {isObserver ? (
+                  <div className="flex h-16 w-11 items-center justify-center rounded-xl border border-ink-200/60 bg-ink-100/80 text-[0.65rem] font-medium uppercase tracking-wide text-ink-400">
+                    Obs
+                  </div>
+                ) : hasVote ? (
                   <VoteCardFace
                     revealed={revealed}
                     vote={participant.vote}
