@@ -1,26 +1,29 @@
-import { get, push, ref, set, update } from 'firebase/database'
+import { get, push, ref, remove, set, update } from 'firebase/database'
 import { db } from '../firebase'
 import type { StoryPoint } from '../types'
 
 /** Hard cap on concurrent rooms; oldest (by createdAt) are removed when exceeded. */
 const MAX_ROOMS = 3
 
-type RoomSnapshot = {
-  createdAt?: number
-}
+/**
+ * Flat index: roomId -> createdAt (number only). Deep reads of `rooms/` often hit
+ * PERMISSION_DENIED under RTDB rules when aggregating many rooms with nested data;
+ * this path stays shallow so list + delete stays allowed with simple rules.
+ */
+const ROOM_LEDGER_PATH = 'roomLedger'
 
 async function enforceMaxRooms(maxRooms: number): Promise<void> {
-  const roomsRef = ref(db, 'rooms')
-  const snap = await get(roomsRef)
-  const val = snap.val() as Record<string, RoomSnapshot> | null
+  const ledgerRef = ref(db, ROOM_LEDGER_PATH)
+  const snap = await get(ledgerRef)
+  const val = snap.val() as Record<string, number> | null
   if (!val) return
 
   const ids = Object.keys(val)
   if (ids.length <= maxRooms) return
 
   const oldestFirst = [...ids].sort((a, b) => {
-    const ca = val[a]?.createdAt ?? 0
-    const cb = val[b]?.createdAt ?? 0
+    const ca = val[a] ?? 0
+    const cb = val[b] ?? 0
     if (ca !== cb) return ca - cb
     return a.localeCompare(b)
   })
@@ -28,13 +31,10 @@ async function enforceMaxRooms(maxRooms: number): Promise<void> {
   const removeCount = ids.length - maxRooms
   const toRemove = oldestFirst.slice(0, removeCount)
 
-  // Use update under `rooms/` only — root `update(ref(db), { "rooms/x": null })`
-  // is often rejected by RTDB rules even when `rooms/$roomId` allows write.
-  const deletes: Record<string, null> = {}
   for (const id of toRemove) {
-    deletes[id] = null
+    await remove(ref(db, `rooms/${id}`))
+    await remove(ref(db, `${ROOM_LEDGER_PATH}/${id}`))
   }
-  await update(roomsRef, deletes)
 }
 
 export async function createRoomWithUniqueId(): Promise<string> {
@@ -45,16 +45,17 @@ export async function createRoomWithUniqueId(): Promise<string> {
     throw new Error('Could not allocate a room id.')
   }
 
+  const createdAt = Date.now()
   await set(newRoomRef, {
     revealed: false,
     participants: {},
-    createdAt: Date.now(),
+    createdAt,
   })
+  await set(ref(db, `${ROOM_LEDGER_PATH}/${roomId}`), createdAt)
 
   try {
     await enforceMaxRooms(MAX_ROOMS)
   } catch (err) {
-    // Room is already created and usable; cap cleanup needs read/write on `rooms/`.
     console.warn('[planning-poker] Room cap cleanup failed:', err)
   }
 

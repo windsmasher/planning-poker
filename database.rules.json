@@ -2,7 +2,27 @@
   "rules": {
     "rooms": {
       ".read": true,
-      ".write": true
+      ".write": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true,
+        "participants": {
+          ".read": true,
+          ".write": true,
+          "$pid": {
+            ".read": true,
+            ".write": true
+          }
+        }
+      }
+    },
+    "roomLedger": {
+      ".read": true,
+      ".write": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true
+      }
     }
   }
 }

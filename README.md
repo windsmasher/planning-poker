@@ -17,7 +17,7 @@ Real-time planning poker for distributed teams. Built with **React 18**, **TypeS
 
 2. **Firebase Realtime Database rules**
 
-   The app expects your database to accept reads/writes under `rooms/`. For development or a private team demo, you can use the sample rules in `database.rules.json` (fully open — anyone with the URL can read/write rooms).
+   The app needs read/write on **`rooms/`** (room state) and **`roomLedger/`** (flat `roomId → createdAt` for the max-room cap). Use `database.rules.json` from this repo and **Publish** in the console.
 
    Deploy rules (requires [Firebase CLI](https://firebase.google.com/docs/cli)):
 
@@ -112,6 +112,9 @@ rooms/
       {participantId}/
         name: string
         vote: 1 | 2 | 3 | 5 | 8 | 13   // omitted until the user picks a card
+
+roomLedger/
+  {roomId}: number   // same createdAt as the room; used only to enforce max rooms (shallow reads)
 ```
 
 - **Show cards** sets `revealed: true`.
