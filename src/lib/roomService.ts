@@ -5,6 +5,39 @@ import type { StoryPoint } from '../types'
 
 const MAX_CREATE_ATTEMPTS = 8
 
+/** Hard cap on concurrent rooms; oldest (by createdAt) are removed when exceeded. */
+const MAX_ROOMS = 3
+
+type RoomSnapshot = {
+  createdAt?: number
+}
+
+async function enforceMaxRooms(maxRooms: number): Promise<void> {
+  const roomsRef = ref(db, 'rooms')
+  const snap = await get(roomsRef)
+  const val = snap.val() as Record<string, RoomSnapshot> | null
+  if (!val) return
+
+  const ids = Object.keys(val)
+  if (ids.length <= maxRooms) return
+
+  const oldestFirst = [...ids].sort((a, b) => {
+    const ca = val[a]?.createdAt ?? 0
+    const cb = val[b]?.createdAt ?? 0
+    if (ca !== cb) return ca - cb
+    return a.localeCompare(b)
+  })
+
+  const removeCount = ids.length - maxRooms
+  const toRemove = oldestFirst.slice(0, removeCount)
+
+  const updates: Record<string, null> = {}
+  for (const id of toRemove) {
+    updates[`rooms/${id}`] = null
+  }
+  await update(ref(db), updates)
+}
+
 export async function createRoomWithUniqueId(): Promise<string> {
   for (let i = 0; i < MAX_CREATE_ATTEMPTS; i++) {
     const roomId = generateRoomId()
@@ -16,6 +49,7 @@ export async function createRoomWithUniqueId(): Promise<string> {
         participants: {},
         createdAt: Date.now(),
       })
+      await enforceMaxRooms(MAX_ROOMS)
       return roomId
     }
   }
