@@ -5,7 +5,9 @@ import { CardSelector } from '../components/CardSelector'
 import { InvitationBar } from '../components/InvitationBar'
 import { ParticipantList } from '../components/ParticipantList'
 import { RoomControls } from '../components/RoomControls'
+import { SuggestedEstimationPanel } from '../components/SuggestedEstimationPanel'
 import { useRoom } from '../hooks/useRoom'
+import { computeSuggestedEstimation } from '../lib/suggestedEstimation'
 import { participantStorageKey } from '../lib/roomId'
 import {
   joinRoom,
@@ -63,6 +65,14 @@ export function Room() {
   }, [room, estimatorEntries])
 
   const revealed = room?.revealed ?? false
+
+  const suggestedEstimation = useMemo(() => {
+    if (!room || !revealed) return null
+    const votes = estimatorEntries
+      .map((e) => e.participant.vote)
+      .filter((v): v is StoryPoint => v !== undefined)
+    return computeSuggestedEstimation(votes)
+  }, [room, revealed, estimatorEntries])
 
   const amObserver = useMemo(() => {
     if (!room || !localParticipantId) return false
@@ -285,6 +295,12 @@ export function Room() {
         </header>
 
         <InvitationBar invitationUrl={invitationUrl} />
+
+        {revealed &&
+        suggestedEstimation &&
+        suggestedEstimation.kind !== 'insufficient' ? (
+          <SuggestedEstimationPanel result={suggestedEstimation} />
+        ) : null}
 
         <ParticipantList
           entries={participantEntries}
