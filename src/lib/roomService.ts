@@ -6,7 +6,7 @@ import type { StoryPoint } from '../types'
 const MAX_SHORT_ID_ATTEMPTS = 16
 
 /** Hard cap on concurrent rooms; oldest (by createdAt) are removed when exceeded. */
-const MAX_ROOMS = 3
+const MAX_ROOMS = 50
 
 /**
  * Flat index: roomId -> createdAt (number only). Deep reads of `rooms/` often hit
