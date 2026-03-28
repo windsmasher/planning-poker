@@ -14,4 +14,8 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig)
 
-export const db = getDatabase(app)
+/**
+ * Pass the database URL explicitly so the client always uses the regional RTDB
+ * instance from config (not a wrong default instance).
+ */
+export const db = getDatabase(app, firebaseConfig.databaseURL)

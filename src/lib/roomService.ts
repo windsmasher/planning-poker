@@ -1,9 +1,6 @@
-import { get, ref, set, update } from 'firebase/database'
+import { get, push, ref, set, update } from 'firebase/database'
 import { db } from '../firebase'
-import { generateRoomId } from './roomId'
 import type { StoryPoint } from '../types'
-
-const MAX_CREATE_ATTEMPTS = 8
 
 /** Hard cap on concurrent rooms; oldest (by createdAt) are removed when exceeded. */
 const MAX_ROOMS = 3
@@ -41,21 +38,27 @@ async function enforceMaxRooms(maxRooms: number): Promise<void> {
 }
 
 export async function createRoomWithUniqueId(): Promise<string> {
-  for (let i = 0; i < MAX_CREATE_ATTEMPTS; i++) {
-    const roomId = generateRoomId()
-    const roomRef = ref(db, `rooms/${roomId}`)
-    const snap = await get(roomRef)
-    if (snap.val() == null) {
-      await set(roomRef, {
-        revealed: false,
-        participants: {},
-        createdAt: Date.now(),
-      })
-      await enforceMaxRooms(MAX_ROOMS)
-      return roomId
-    }
+  const roomsRef = ref(db, 'rooms')
+  const newRoomRef = push(roomsRef)
+  const roomId = newRoomRef.key
+  if (!roomId) {
+    throw new Error('Could not allocate a room id.')
   }
-  throw new Error('Could not create a unique room. Please try again.')
+
+  await set(newRoomRef, {
+    revealed: false,
+    participants: {},
+    createdAt: Date.now(),
+  })
+
+  try {
+    await enforceMaxRooms(MAX_ROOMS)
+  } catch (err) {
+    // Room is already created and usable; cap cleanup needs read/write on `rooms/`.
+    console.warn('[planning-poker] Room cap cleanup failed:', err)
+  }
+
+  return roomId
 }
 
 export async function joinRoom(roomId: string, name: string): Promise<string> {
