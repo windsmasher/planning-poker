@@ -43,8 +43,19 @@ export function ParticipantList({
                 delay: index * 0.05,
                 layout: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
               }}
-              className="flex items-center justify-between gap-4 rounded-2xl border border-ink-200/80 bg-white/90 px-4 py-3 shadow-card"
+              className="relative flex items-center justify-between gap-4 rounded-2xl border border-ink-200/80 bg-white/90 px-4 py-3 shadow-card"
             >
+              {canRemove ? (
+                <button
+                  type="button"
+                  onClick={() => onRemoveParticipant(id)}
+                  disabled={removingParticipantId === id}
+                  aria-label={`Remove ${participant.name}`}
+                  className="absolute -left-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border border-red-200 bg-white text-xs font-semibold text-ink-300 shadow-sm transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600 focus-visible:border-red-300 focus-visible:bg-red-50 focus-visible:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {removingParticipantId === id ? '…' : '×'}
+                </button>
+              ) : null}
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium text-ink-900">
                   {participant.name}
@@ -67,17 +78,7 @@ export function ParticipantList({
                   {!isObserver && !hasVote && revealed && 'No card'}
                 </p>
               </div>
-              <div className="flex shrink-0 items-end gap-3">
-                {canRemove ? (
-                  <button
-                    type="button"
-                    onClick={() => onRemoveParticipant(id)}
-                    disabled={removingParticipantId === id}
-                    className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {removingParticipantId === id ? 'Removing…' : 'Remove'}
-                  </button>
-                ) : null}
+              <div className="flex shrink-0 items-end gap-2">
                 {isObserver ? (
                   <div className="flex h-16 w-11 items-center justify-center rounded-xl border border-ink-200/60 bg-ink-100/80 text-[0.65rem] font-medium uppercase tracking-wide text-ink-400">
                     Obs
