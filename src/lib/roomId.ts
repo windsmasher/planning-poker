@@ -11,3 +11,7 @@ export function generateRoomId(length = 8): string {
 export function participantStorageKey(roomId: string): string {
   return `planning-poker:${roomId}:participantId`
 }
+
+export function roomOwnerStorageKey(roomId: string): string {
+  return `planning-poker:${roomId}:ownerKey`
+}

@@ -39,6 +39,11 @@ export function useRoom(roomId: string | undefined): UseRoomResult {
                 : {},
             createdAt:
               typeof val.createdAt === 'number' ? val.createdAt : undefined,
+            ownerKey: typeof val.ownerKey === 'string' ? val.ownerKey : undefined,
+            ownerParticipantId:
+              typeof val.ownerParticipantId === 'string'
+                ? val.ownerParticipantId
+                : undefined,
           })
         }
         setLoading(false)

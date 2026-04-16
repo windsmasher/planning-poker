@@ -1,4 +1,4 @@
-export const STORY_POINTS = [1, 2, 3, 5, 8, 13] as const
+export const STORY_POINTS = [1, 2, 3, 5, 8, 13, 21] as const
 
 export type StoryPoint = (typeof STORY_POINTS)[number]
 
@@ -14,4 +14,6 @@ export type RoomState = {
   revealed: boolean
   participants: Record<string, Participant>
   createdAt?: number
+  ownerKey?: string
+  ownerParticipantId?: string
 }

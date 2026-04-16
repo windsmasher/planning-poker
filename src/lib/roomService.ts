@@ -1,7 +1,7 @@
 import { get, ref, remove, set, update } from 'firebase/database'
 import { db } from '../firebase'
 import { generateRoomId } from './roomId'
-import type { StoryPoint } from '../types'
+import type { Participant, StoryPoint } from '../types'
 
 const MAX_SHORT_ID_ATTEMPTS = 16
 
@@ -14,6 +14,10 @@ const MAX_ROOMS = 50
  * this path stays shallow so list + delete stays allowed with simple rules.
  */
 const ROOM_LEDGER_PATH = 'roomLedger'
+
+function normalizeParticipantName(name: string): string {
+  return name.trim().toLocaleLowerCase()
+}
 
 async function enforceMaxRooms(maxRooms: number): Promise<void> {
   const ledgerRef = ref(db, ROOM_LEDGER_PATH)
@@ -40,7 +44,7 @@ async function enforceMaxRooms(maxRooms: number): Promise<void> {
   }
 }
 
-export async function createRoomWithUniqueId(): Promise<string> {
+export async function createRoomWithUniqueId(ownerKey: string): Promise<string> {
   for (let attempt = 0; attempt < MAX_SHORT_ID_ATTEMPTS; attempt++) {
     const roomId = generateRoomId()
     const roomRef = ref(db, `rooms/${roomId}`)
@@ -52,6 +56,8 @@ export async function createRoomWithUniqueId(): Promise<string> {
       revealed: false,
       participants: {},
       createdAt,
+      ownerKey,
+      ownerParticipantId: null,
     })
     await set(ref(db, `${ROOM_LEDGER_PATH}/${roomId}`), createdAt)
 
@@ -72,9 +78,23 @@ export async function joinRoom(
   name: string,
   observer: boolean,
 ): Promise<string> {
+  const trimmedName = name.trim()
+  const roomSnap = await get(ref(db, `rooms/${roomId}/participants`))
+  const participants = (roomSnap.val() as Record<string, Participant> | null) ?? {}
+
+  const nameTaken = Object.values(participants).some(
+    (participant) =>
+      normalizeParticipantName(participant.name) ===
+      normalizeParticipantName(trimmedName),
+  )
+
+  if (nameTaken) {
+    throw new Error('DUPLICATE_PARTICIPANT_NAME')
+  }
+
   const participantId = crypto.randomUUID()
   await update(ref(db, `rooms/${roomId}/participants/${participantId}`), {
-    name: name.trim(),
+    name: trimmedName,
     observer,
   })
   return participantId
@@ -113,4 +133,23 @@ export async function resetRound(
     updates[`participants/${id}/vote`] = null
   }
   await update(ref(db, `rooms/${roomId}`), updates)
+}
+
+export async function removeParticipant(
+  roomId: string,
+  participantId: string,
+): Promise<void> {
+  await remove(ref(db, `rooms/${roomId}/participants/${participantId}`))
+}
+
+export async function assignRoomOwnerParticipant(
+  roomId: string,
+  participantId: string,
+): Promise<void> {
+  await update(ref(db, `rooms/${roomId}`), { ownerParticipantId: participantId })
+}
+
+export async function deleteRoom(roomId: string): Promise<void> {
+  await remove(ref(db, `rooms/${roomId}`))
+  await remove(ref(db, `${ROOM_LEDGER_PATH}/${roomId}`))
 }

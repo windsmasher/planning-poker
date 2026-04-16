@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { formatCreateRoomError } from '../lib/formatCreateRoomError'
+import { roomOwnerStorageKey } from '../lib/roomId'
 import { createRoomWithUniqueId } from '../lib/roomService'
 
 export function Home() {
@@ -13,7 +14,9 @@ export function Home() {
     setError(null)
     setCreating(true)
     try {
-      const roomId = await createRoomWithUniqueId()
+      const ownerKey = crypto.randomUUID()
+      const roomId = await createRoomWithUniqueId(ownerKey)
+      sessionStorage.setItem(roomOwnerStorageKey(roomId), ownerKey)
       navigate(`/room/${roomId}`)
     } catch (e) {
       console.error('[planning-poker] createRoom', e)

@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CardSelector } from '../components/CardSelector'
 import { InvitationBar } from '../components/InvitationBar'
 import { ParticipantList } from '../components/ParticipantList'
@@ -9,9 +9,12 @@ import { SuggestedEstimationPanel } from '../components/SuggestedEstimationPanel
 import { UnanimityConfetti } from '../components/UnanimityConfetti'
 import { useRoom } from '../hooks/useRoom'
 import { computeSuggestedEstimation } from '../lib/suggestedEstimation'
-import { participantStorageKey } from '../lib/roomId'
+import { participantStorageKey, roomOwnerStorageKey } from '../lib/roomId'
 import {
+  assignRoomOwnerParticipant,
+  deleteRoom,
   joinRoom,
+  removeParticipant,
   revealVotes,
   resetRound,
   setParticipantVote,
@@ -19,6 +22,7 @@ import {
 import type { StoryPoint } from '../types'
 
 export function Room() {
+  const navigate = useNavigate()
   const { roomId } = useParams<{ roomId: string }>()
   const { room, loading, missing } = useRoom(roomId)
 
@@ -33,6 +37,11 @@ export function Room() {
   const [joining, setJoining] = useState(false)
   const [joinError, setJoinError] = useState<string | null>(null)
   const [actionBusy, setActionBusy] = useState(false)
+  const [removingParticipantId, setRemovingParticipantId] = useState<string | null>(
+    null,
+  )
+  const [deletingRoom, setDeletingRoom] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   useEffect(() => {
     if (!roomId || !room) return
@@ -95,6 +104,23 @@ export function Room() {
   }, [room, localParticipantId])
 
   const canChangeVote = !revealed
+  const localOwnerKey = roomId
+    ? sessionStorage.getItem(roomOwnerStorageKey(roomId))
+    : null
+  const isRoomOwner =
+    localOwnerKey !== null &&
+    room?.ownerKey !== undefined &&
+    localOwnerKey === room.ownerKey
+  const ownerParticipantId = room?.ownerParticipantId ?? null
+  const normalizedJoinName = joinName.trim().toLocaleLowerCase()
+  const duplicateNameExists = participantEntries.some(
+    ({ participant }) =>
+      participant.name.trim().toLocaleLowerCase() === normalizedJoinName,
+  )
+  const joinValidationError =
+    normalizedJoinName && duplicateNameExists
+      ? 'This name is already taken in this room.'
+      : joinError
 
   const handleJoin = useCallback(async () => {
     if (!roomId) return
@@ -107,18 +133,39 @@ export function Room() {
       setJoinError('Choose whether you will estimate or observe.')
       return
     }
+    if (
+      room &&
+      Object.values(room.participants).some(
+        (participant) =>
+          participant.name.trim().toLocaleLowerCase() ===
+          name.toLocaleLowerCase(),
+      )
+    ) {
+      setJoinError('This name is already taken in this room.')
+      return
+    }
     setJoinError(null)
     setJoining(true)
     try {
       const pid = await joinRoom(roomId, name, joinRole === 'observer')
+      if (isRoomOwner) {
+        await assignRoomOwnerParticipant(roomId, pid)
+      }
       sessionStorage.setItem(participantStorageKey(roomId), pid)
       setLocalParticipantId(pid)
-    } catch {
-      setJoinError('Could not join the room. Check your connection.')
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === 'DUPLICATE_PARTICIPANT_NAME'
+      ) {
+        setJoinError('This name is already taken in this room.')
+      } else {
+        setJoinError('Could not join the room. Check your connection.')
+      }
     } finally {
       setJoining(false)
     }
-  }, [joinName, joinRole, roomId])
+  }, [isRoomOwner, joinName, joinRole, room, roomId])
 
   const handleSelectCard = useCallback(
     async (vote: StoryPoint) => {
@@ -152,6 +199,41 @@ export function Room() {
       setActionBusy(false)
     }
   }, [roomId, revealed, room])
+
+  const handleRemoveParticipant = useCallback(
+    async (participantId: string) => {
+      if (
+        !roomId ||
+        !isRoomOwner ||
+        participantId === localParticipantId ||
+        removingParticipantId !== null
+      ) {
+        return
+      }
+
+      setRemovingParticipantId(participantId)
+      try {
+        await removeParticipant(roomId, participantId)
+      } finally {
+        setRemovingParticipantId(null)
+      }
+    },
+    [isRoomOwner, localParticipantId, removingParticipantId, roomId],
+  )
+
+  const handleDeleteRoom = useCallback(async () => {
+    if (!roomId || !isRoomOwner || deletingRoom) return
+    setDeletingRoom(true)
+    try {
+      await deleteRoom(roomId)
+      sessionStorage.removeItem(participantStorageKey(roomId))
+      sessionStorage.removeItem(roomOwnerStorageKey(roomId))
+      navigate('/', { replace: true })
+    } finally {
+      setDeletingRoom(false)
+      setDeleteConfirmOpen(false)
+    }
+  }, [deletingRoom, isRoomOwner, navigate, roomId])
 
   if (!roomId) {
     return (
@@ -220,7 +302,10 @@ export function Room() {
             <input
               type="text"
               value={joinName}
-              onChange={(e) => setJoinName(e.target.value)}
+              onChange={(e) => {
+                setJoinName(e.target.value)
+                if (joinError) setJoinError(null)
+              }}
               onKeyDown={(e) => e.key === 'Enter' && void handleJoin()}
               className="mt-2 w-full rounded-xl border border-ink-200 bg-ink-50/50 px-4 py-3 text-ink-900 outline-none ring-accent/30 transition-shadow focus:ring-2"
               placeholder="Your name"
@@ -269,14 +354,14 @@ export function Room() {
               </label>
             </div>
           </fieldset>
-          {joinError ? (
+          {joinValidationError ? (
             <p className="mt-2 text-sm text-red-600" role="alert">
-              {joinError}
+              {joinValidationError}
             </p>
           ) : null}
           <motion.button
             type="button"
-            disabled={joining || joinRole === null}
+            disabled={joining || joinRole === null || duplicateNameExists}
             whileHover={joining ? undefined : { scale: 1.02 }}
             whileTap={joining ? undefined : { scale: 0.98 }}
             onClick={() => void handleJoin()}
@@ -304,7 +389,50 @@ export function Room() {
           </p>
         </header>
 
-        <InvitationBar invitationUrl={invitationUrl} />
+        <InvitationBar
+          invitationUrl={invitationUrl}
+          canDeleteRoom={isRoomOwner}
+          deletingRoom={deletingRoom}
+          onDeleteRoom={() => {
+            setDeleteConfirmOpen(true)
+          }}
+        />
+
+        {deleteConfirmOpen ? (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className="rounded-2xl border border-red-200 bg-white/95 p-5 shadow-card backdrop-blur-sm"
+          >
+            <h2 className="font-display text-base font-semibold text-ink-900">
+              Delete room?
+            </h2>
+            <p className="mt-2 text-sm text-ink-600">
+              This will permanently remove the room and disconnect all participants.
+            </p>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmOpen(false)}
+                disabled={deletingRoom}
+                className="rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-700 transition-colors hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void handleDeleteRoom()
+                }}
+                disabled={deletingRoom}
+                className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {deletingRoom ? 'Deleting room…' : 'Yes, delete room'}
+              </button>
+            </div>
+          </motion.div>
+        ) : null}
 
         {revealed &&
         suggestedEstimation &&
@@ -323,6 +451,12 @@ export function Room() {
           entries={participantEntries}
           revealed={revealed}
           localParticipantId={localParticipantId}
+          ownerParticipantId={ownerParticipantId}
+          canRemoveParticipants={isRoomOwner}
+          removingParticipantId={removingParticipantId}
+          onRemoveParticipant={(participantId) => {
+            void handleRemoveParticipant(participantId)
+          }}
         />
 
         {amObserver ? (
