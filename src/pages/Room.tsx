@@ -40,6 +40,9 @@ export function Room() {
   const [removingParticipantId, setRemovingParticipantId] = useState<string | null>(
     null,
   )
+  const [participantToRemoveId, setParticipantToRemoveId] = useState<string | null>(
+    null,
+  )
   const [deletingRoom, setDeletingRoom] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
@@ -121,6 +124,9 @@ export function Room() {
     normalizedJoinName && duplicateNameExists
       ? 'This name is already taken in this room.'
       : joinError
+  const participantToRemove = participantToRemoveId
+    ? room?.participants[participantToRemoveId] ?? null
+    : null
 
   const handleJoin = useCallback(async () => {
     if (!roomId) return
@@ -216,6 +222,7 @@ export function Room() {
         await removeParticipant(roomId, participantId)
       } finally {
         setRemovingParticipantId(null)
+        setParticipantToRemoveId(null)
       }
     },
     [isRoomOwner, localParticipantId, removingParticipantId, roomId],
@@ -434,6 +441,44 @@ export function Room() {
           </motion.div>
         ) : null}
 
+        {participantToRemoveId && participantToRemove ? (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className="rounded-2xl border border-red-200 bg-white/95 p-5 shadow-card backdrop-blur-sm"
+          >
+            <h2 className="font-display text-base font-semibold text-ink-900">
+              Remove participant?
+            </h2>
+            <p className="mt-2 text-sm text-ink-600">
+              This will remove {participantToRemove.name} from the room immediately.
+            </p>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => setParticipantToRemoveId(null)}
+                disabled={removingParticipantId !== null}
+                className="rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-700 transition-colors hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void handleRemoveParticipant(participantToRemoveId)
+                }}
+                disabled={removingParticipantId !== null}
+                className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {removingParticipantId === participantToRemoveId
+                  ? 'Removing participant…'
+                  : 'Yes, remove participant'}
+              </button>
+            </div>
+          </motion.div>
+        ) : null}
+
         {revealed &&
         suggestedEstimation &&
         suggestedEstimation.kind !== 'insufficient' ? (
@@ -455,7 +500,7 @@ export function Room() {
           canRemoveParticipants={isRoomOwner}
           removingParticipantId={removingParticipantId}
           onRemoveParticipant={(participantId) => {
-            void handleRemoveParticipant(participantId)
+            setParticipantToRemoveId(participantId)
           }}
         />
 
