@@ -5,9 +5,15 @@ type Props = {
   selected: StoryPoint | undefined
   disabled: boolean
   onSelect: (value: StoryPoint) => void
+  onHoverCard?: () => void
 }
 
-export function CardSelector({ selected, disabled, onSelect }: Props) {
+export function CardSelector({
+  selected,
+  disabled,
+  onSelect,
+  onHoverCard,
+}: Props) {
   return (
     <div>
       <p className="mb-3 font-display text-sm font-semibold text-ink-700">
@@ -34,6 +40,9 @@ export function CardSelector({ selected, disabled, onSelect }: Props) {
                   : { y: -6, scale: 1.04, transition: { duration: 0.2 } }
               }
               whileTap={disabled ? undefined : { scale: 0.96 }}
+              onPointerEnter={() => {
+                if (!disabled) onHoverCard?.()
+              }}
               onClick={() => !disabled && onSelect(point)}
               className={`relative flex h-16 w-12 items-center justify-center rounded-xl border-2 font-display text-lg font-bold shadow-card transition-colors sm:h-[4.5rem] sm:w-14 sm:text-xl ${
                 isSelected

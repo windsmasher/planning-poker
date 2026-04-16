@@ -7,6 +7,7 @@ import { ParticipantList } from '../components/ParticipantList'
 import { RoomControls } from '../components/RoomControls'
 import { SuggestedEstimationPanel } from '../components/SuggestedEstimationPanel'
 import { UnanimityConfetti } from '../components/UnanimityConfetti'
+import { useCardSounds } from '../hooks/useCardSounds'
 import { useRoom } from '../hooks/useRoom'
 import { computeSuggestedEstimation } from '../lib/suggestedEstimation'
 import { participantStorageKey, roomOwnerStorageKey } from '../lib/roomId'
@@ -45,6 +46,7 @@ export function Room() {
   )
   const [deletingRoom, setDeletingRoom] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const { playCardHover, playCardSelect, playReveal, playReset } = useCardSounds()
 
   useEffect(() => {
     if (!roomId || !room) return
@@ -179,27 +181,30 @@ export function Room() {
   const handleSelectCard = useCallback(
     async (vote: StoryPoint) => {
       if (!roomId || !localParticipantId || revealed) return
+      playCardSelect()
       try {
         await setParticipantVote(roomId, localParticipantId, vote)
       } catch {
         /* sync will retry on next interaction */
       }
     },
-    [roomId, localParticipantId, revealed],
+    [localParticipantId, playCardSelect, revealed, roomId],
   )
 
   const handleReveal = useCallback(async () => {
     if (!roomId || !allVoted || revealed) return
+    playReveal()
     setActionBusy(true)
     try {
       await revealVotes(roomId)
     } finally {
       setActionBusy(false)
     }
-  }, [roomId, allVoted, revealed])
+  }, [allVoted, playReveal, revealed, roomId])
 
   const handleReset = useCallback(async () => {
     if (!roomId || !revealed || !room) return
+    playReset()
     setActionBusy(true)
     try {
       const ids = Object.keys(room.participants)
@@ -207,7 +212,7 @@ export function Room() {
     } finally {
       setActionBusy(false)
     }
-  }, [roomId, revealed, room])
+  }, [playReset, revealed, room, roomId])
 
   const handleRemoveParticipant = useCallback(
     async (participantId: string) => {
@@ -542,6 +547,7 @@ export function Room() {
               selected={myVote}
               disabled={!canChangeVote}
               onSelect={handleSelectCard}
+              onHoverCard={playCardHover}
             />
           </motion.section>
         )}
