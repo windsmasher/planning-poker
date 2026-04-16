@@ -16,7 +16,7 @@ export function Home() {
     try {
       const ownerKey = crypto.randomUUID()
       const roomId = await createRoomWithUniqueId(ownerKey)
-      sessionStorage.setItem(roomOwnerStorageKey(roomId), ownerKey)
+      localStorage.setItem(roomOwnerStorageKey(roomId), ownerKey)
       navigate(`/room/${roomId}`)
     } catch (e) {
       console.error('[planning-poker] createRoom', e)

@@ -29,7 +29,7 @@ export function Room() {
 
   const [localParticipantId, setLocalParticipantId] = useState<string | null>(
     () =>
-      roomId ? sessionStorage.getItem(participantStorageKey(roomId)) : null,
+      roomId ? localStorage.getItem(participantStorageKey(roomId)) : null,
   )
   const [joinName, setJoinName] = useState('')
   const [joinRole, setJoinRole] = useState<'estimator' | 'observer' | null>(
@@ -51,9 +51,9 @@ export function Room() {
   useEffect(() => {
     if (!roomId || !room) return
     const key = participantStorageKey(roomId)
-    const raw = sessionStorage.getItem(key)
+    const raw = localStorage.getItem(key)
     if (raw && room.participants[raw] === undefined) {
-      sessionStorage.removeItem(key)
+      localStorage.removeItem(key)
       setLocalParticipantId(null)
     }
   }, [room, roomId])
@@ -110,7 +110,7 @@ export function Room() {
 
   const canChangeVote = !revealed
   const localOwnerKey = roomId
-    ? sessionStorage.getItem(roomOwnerStorageKey(roomId))
+    ? localStorage.getItem(roomOwnerStorageKey(roomId))
     : null
   const isRoomOwner =
     localOwnerKey !== null &&
@@ -162,7 +162,7 @@ export function Room() {
       if (isRoomOwner) {
         await assignRoomOwnerParticipant(roomId, pid)
       }
-      sessionStorage.setItem(participantStorageKey(roomId), pid)
+      localStorage.setItem(participantStorageKey(roomId), pid)
       setLocalParticipantId(pid)
     } catch (error) {
       if (
@@ -241,8 +241,8 @@ export function Room() {
     setDeletingRoom(true)
     try {
       await deleteRoom(roomId)
-      sessionStorage.removeItem(participantStorageKey(roomId))
-      sessionStorage.removeItem(roomOwnerStorageKey(roomId))
+      localStorage.removeItem(participantStorageKey(roomId))
+      localStorage.removeItem(roomOwnerStorageKey(roomId))
       navigate('/', { replace: true })
     } finally {
       setDeletingRoom(false)
