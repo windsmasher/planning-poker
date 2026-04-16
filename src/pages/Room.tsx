@@ -115,6 +115,9 @@ export function Room() {
     room?.ownerKey !== undefined &&
     localOwnerKey === room.ownerKey
   const ownerParticipantId = room?.ownerParticipantId ?? null
+  const ownerParticipantName = ownerParticipantId
+    ? room?.participants[ownerParticipantId]?.name ?? null
+    : null
   const normalizedJoinName = joinName.trim().toLocaleLowerCase()
   const duplicateNameExists = participantEntries.some(
     ({ participant }) =>
@@ -404,6 +407,20 @@ export function Room() {
             setDeleteConfirmOpen(true)
           }}
         />
+
+        <div className="-mb-2 px-1 text-center text-sm text-ink-500">
+          {isRoomOwner ? (
+            <p>
+              You are the room creator. You can remove participants or delete
+              the room.
+            </p>
+          ) : ownerParticipantName ? (
+            <p>
+              {ownerParticipantName} as the room creator can remove
+              participants or delete the room.
+            </p>
+          ) : null}
+        </div>
 
         {deleteConfirmOpen ? (
           <motion.div
